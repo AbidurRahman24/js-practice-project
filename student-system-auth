@@ -1,0 +1,109 @@
+const express = require('express');
+const connectDB = require('./db');
+const User = require('./models/User');
+const bcrypt = require('bcrypt');
+
+const app = express();
+app.use(express.json())
+app.get('/', (req, res) => res.send('Hello world!'));
+
+app.post('/register', async (req, res, next) => {
+    //     Start
+    // name = input()
+    // email = input()
+    // password = input()
+    // if name && email && password is invalid:
+    //   return 400 error
+
+    // user = find user with email
+    // if user found:
+    //   return 400 error
+
+    // hash = hash password
+    // user = save name, email, hash to user model
+    // return 201
+    // End
+    const { name, email, password } = req.body
+    if (!name || !email || !password) {
+        return res.status(400).json({ massage: 'Invaild Data' });
+    }
+
+    try {
+        let user = await User.findOne({ email })
+        if (user) {
+            return res.status(400).json({ massage: "user already exist" })
+        }
+        user = new User({ name, email, password })
+        const salt = await bcrypt.genSalt(10);
+        const hash = await bcrypt.hash(password, salt);
+        user.password = hash
+
+        await user.save();
+
+        return res.status(201).json({ massage: "user login successfully", user })
+    } catch (e) {
+        next(e)
+    }
+    // console.log(req.body);
+    /**
+         * Request Input Sources:
+         * req Body
+         * req Param
+         * req Query
+         * req Header
+         * req Cookies
+         */
+    // const name = req.body.name;
+    // const email = req.body.email;
+    // const password = req.body.password;
+})
+// login
+app.use('/login', async (req, res, next) => {
+    // email = input()
+    // password = input()
+    const { email, password } = req.body
+    try {
+        // user = find user with email
+        let user = await User.findOne({ email })
+        // if user not found:
+        if (!user) {
+            //   return 400 error
+            return res.status(400).json({ massage: 'Invalid credential' })
+        }
+        // if password not equal to user hash:
+        const isMatch = await bcrypt.compare(password, user.password)
+        if (!isMatch) {
+            //   return 400 error
+            return res.status(400).json({ massage: 'Invalid credential' })
+        }
+        delete user._doc.password;
+        return res.status(200).json({ message: 'Login Successful', user });
+    }
+    catch (error) {
+        next(error)
+    }
+
+    // token = generate token using user
+    // return token
+    // End
+})
+
+
+app.use((err, req, res, next) => {
+    console.log(err);
+    return res.status(500).json({ massage: "server error occured" })
+})
+
+
+connectDB('mongodb://localhost:27017/attendance-db')
+    .then(() => {
+        console.log('connect database');
+        const port = process.env.PORT || 8082;
+
+        app.listen(port, () => console.log(`Server running on port ${port}`));
+    })
+    .catch((e) => {
+        console.log(e);
+    })
+
+
